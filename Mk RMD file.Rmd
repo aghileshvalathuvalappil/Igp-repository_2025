@@ -1,0 +1,310 @@
+---
+title: "W most recent data"
+author: "Mk"
+date: "2025-05-04"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(readxl)
+library(broom)
+library(ggplot2)
+library(dplyr)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+df <- read_excel("C:/Users/Mk/Downloads/AXF-1 data update 29APR25.xlsx")
+# Quick view of the data
+head(df)
+df <- df %>%
+  mutate(across(c(`Droplet/particle size (µm)`,
+                  `% dry after 24h in incubator`,
+                  `Curing Energy (kJ g-1)`,
+                  `Flow Rate Ratio`,
+                  `Emulsion viscosity (cP)`,
+                  `Core Viscosity (cP)`,
+                  `UV viscosity (cP)`,
+                  `Temperature of Outer Phase`,
+                  `Dispersed Flow Rate (mL/min)`,
+                  `% dry after 2 days 70% humidity`,
+                  `% single core`,
+                  `Transmission window`,
+                  `% empty`), as.numeric, .names = "converted_{.col}"))
+```
+
+## 1. Effect of Core and UV Viscosity on Emulsion Viscosity
+```{r}
+ggplot(df, aes(x = `Core Viscosity (cP)`, y = `Emulsion viscosity (cP)`, color = `UV viscosity (cP)`)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue") +
+  scale_color_viridis_c() +
+  theme_minimal() +
+  labs(title = "Core & UV Viscosity vs Emulsion Viscosity",
+       x = "Core Viscosity (cP)",
+       y = "Emulsion Viscosity (cP)",
+       color = "UV Viscosity (cP)")
+```
+
+## 2. Effect of Cure Energy on % Dry After 24h
+```{r}
+ggplot(df, aes(x = `Curing Energy (kJ g-1)`, y = `% dry after 24h in incubator`)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Effect of Cure Energy on % Dry After 24h",
+       x = "Curing Energy (kJ g⁻¹)",
+       y = "% Dry After 24h")
+```
+
+
+## 3. Effect of Flow Rate Ratio on Particle Size
+```{r}
+ggplot(df, aes(x = `Flow Rate Ratio`, y = `Droplet/particle size (µm)`)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red") +
+  theme_minimal() +
+  labs(title = "Flow Rate Ratio vs Particle Size",
+       x = "Flow Rate Ratio",
+       y = "Particle Size (µm)")
+```
+
+## 4. Emulsion Viscosity vs Particle Size
+```{r}
+ggplot(df, aes(x = `Emulsion viscosity (cP)`, y = `Droplet/particle size (µm)`)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "darkgreen") +
+  theme_minimal() +
+  labs(title = "Emulsion Viscosity vs Particle Size",
+       x = "Emulsion Viscosity (cP)",
+       y = "Particle Size (µm)")
+```
+
+## 5. Emulsion Viscosity vs Dispersed Flow Rate
+```{r}
+ggplot(df, aes(x = `Emulsion viscosity (cP)`, y = `Dispersed Flow Rate (mL/min)`)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red") +
+  theme_minimal() +
+  labs(title = "Emulsion Viscosity vs Dispersed Flow Rate",
+       x = "Emulsion Viscosity (cP)",
+       y = "Dispersed Flow Rate (mL/min)")
+```
+
+## 6. Temperature Variance vs % Dry
+```{r}
+ggplot(df, aes(x = `Temperature of Outer Phase`, y = `% dry after 24h in incubator`)) +
+  geom_point()+
+  geom_smooth(method = "lm", color = "red") +
+  theme_minimal() +
+  labs(title = "Temperature vs % Dry",
+       x = "Temperature (°C)",
+       y = "% Dry After 24h")
+```
+
+## 7. Particle Size vs % Dry
+```{r}
+ggplot(df, aes(x = `Droplet/particle size (µm)`, y = `% dry after 24h in incubator`)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Effect of Particle Size on % Dry After 24h",
+       x = "Particle Size (µm)",
+       y = "% Dry After 24h")
+
+model1 <- lm(`% dry after 24h in incubator` ~ `Droplet/particle size (µm)`, data = df)
+summary(model1)
+```
+
+## 8. % Single Core vs Transmission Window
+```{r}
+ggplot(df, aes(x = `% single core`, y = `Transmission window`)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red") +
+  theme_minimal() +
+  labs(title = "% Single Core vs Transmission Window",
+       x = "% Single Core",
+       y = "Transmission Window")
+```
+
+## 9. UV Formulations with Lowest % Dry and Highest Transmission Window
+```{r}
+# Summarize the data
+summary_df <- df %>%
+  group_by(`UV formulation`) %>%
+  summarise(
+    avg_dry = mean(`% dry after 24h in incubator`, na.rm = TRUE),
+    avg_transmission = mean(`Transmission window`, na.rm = TRUE)
+  ) %>%
+  arrange(avg_dry, desc(avg_transmission))
+
+# Reorder factor levels for clearer plotting
+summary_df$`UV formulation` <- factor(summary_df$`UV formulation`, 
+                                      levels = summary_df$`UV formulation`)
+
+# Plot: bar for avg_dry and point for avg_transmission
+ggplot(summary_df, aes(x = `UV formulation`)) +
+  geom_col(aes(y = avg_dry), fill = "steelblue", width = 0.6) +
+  geom_point(aes(y = avg_transmission), color = "orange", size = 3) +
+  labs(
+    title = "Avg % Dry and Transmission by UV Formulation",
+    y = "Avg % Dry (bars) & Transmission Window (points)",
+    x = "UV Formulation"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## 10. Core Formulations with Lowest % Dry and Highest Transmission Window
+```{r}
+df %>% group_by(`Core Formulation`) %>% 
+  summarise(avg_dry = mean(`% dry after 24h in incubator`, na.rm = TRUE),
+            avg_transmission = mean(`Transmission window`, na.rm = TRUE)) %>%
+  arrange(avg_dry, desc(avg_transmission))
+```
+
+```{r}
+# Summarize data
+core_summary <- df %>%
+  group_by(`Core Formulation`) %>%
+  summarise(
+    avg_dry = mean(`% dry after 24h in incubator`, na.rm = TRUE),
+    avg_transmission = mean(`Transmission window`, na.rm = TRUE)
+  ) %>%
+  arrange(avg_dry, desc(avg_transmission))
+
+# Reorder factor for better plotting
+core_summary$`Core Formulation` <- factor(core_summary$`Core Formulation`, 
+                                          levels = core_summary$`Core Formulation`)
+
+# Plot
+ggplot(core_summary, aes(x = `Core Formulation`)) +
+  geom_col(aes(y = avg_dry), fill = "darkseagreen", width = 0.6) +
+  geom_point(aes(y = avg_transmission), color = "tomato", size = 3) +
+  labs(
+    title = "Avg % Dry and Transmission by Core Formulation",
+    x = "Core Formulation",
+    y = "Avg % Dry (bars) & Transmission Window (points)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## 11. % Empty vs Transmission Window
+```{r}
+ggplot(df, aes(x = `% empty`, y = `Transmission window`)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red") +
+  theme_minimal() +
+  labs(title = "% Empty vs Transmission Window",
+       x = "% Empty",
+       y = "Transmission Window")
+```
+
+## 12. Relationship Between % Dry and Transmission (Factoring in UV and Core Formulation)
+```{r}
+ggplot(df, aes(x = `% dry after 24h in incubator`, y = `Transmission window`, color = `UV formulation`, shape = `Core Formulation`)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "% Dry vs Transmission (Factoring UV & Core Formulation)",
+       x = "% Dry After 24h",
+       y = "Transmission Window")
+```
+
+## 13. Multiple Linear Regression analysis 
+
+```{r}
+# Multiple variables affecting % dry
+model3 <- lm(`% dry after 24h in incubator` ~ `Droplet/particle size (µm)` + `Curing Energy (kJ g-1)` + `Emulsion viscosity (cP)`, data = df)
+summary(model3)
+
+# where the dependent variable (outcome) = % dry 24h; independent variables (predictors) = Droplet/particle size (µm); Curing Energy (kJ g-1); Emulsion viscosity (cP)
+
+# Tidy version
+tidy(model3)
+par(mfrow = c(2, 2))  # Arrange 4 plots in one window
+plot(model3)
+```
+```{r}
+library(plotly)
+
+# using size and energy
+model3 <- lm(`% dry after 24h in incubator` ~ `Droplet/particle size (µm)` + `Curing Energy (kJ g-1)`, data = df)
+
+# Generate prediction grid
+size_seq <- seq(min(df$`Droplet/particle size (µm)`, na.rm = TRUE),
+                max(df$`Droplet/particle size (µm)`, na.rm = TRUE), length.out = 30)
+curing_seq <- seq(min(df$`Curing Energy (kJ g-1)`, na.rm = TRUE),
+                  max(df$`Curing Energy (kJ g-1)`, na.rm = TRUE), length.out = 30)
+
+grid <- expand.grid(`Droplet/particle size (µm)` = size_seq,
+                    `Curing Energy (kJ g-1)` = curing_seq)
+
+# Predict % dry
+grid$predicted <- predict(model3, newdata = grid)
+
+# Reshape to matrix
+z_matrix <- matrix(grid$predicted, nrow = 30, ncol = 30)
+
+# 3D Plot
+library(plotly)
+plot_ly(x = ~size_seq, y = ~curing_seq, z = ~z_matrix) %>%
+  add_surface() %>%
+  layout(
+    title = "% Dry vs Droplet Size and Curing Energy",
+    scene = list(
+      xaxis = list(title = "Droplet/Particle Size (µm)"),
+      yaxis = list(title = "Curing Energy (kJ/g)"),
+      zaxis = list(title = "% Dry After 24h")
+    )
+  )
+```
+
+## Model Diagnostic Summary
+
+1) Residuals vs Fitted shows a curved pattern, indicating non-linearity in the model.
+
+2) Q-Q Plot reveals deviations at the extremes, suggesting non-normal residuals, likely due to outliers or skewness.
+
+3) Scale-Location Plot shows an upward trend, pointing to heteroscedasticity (non-constant variance).
+
+4) Residuals vs Leverage identifies some influential points (e.g., 1, 106, 130, 140), though none are extreme outliers.
+
+## Model Limitations
+
+129 observations were dropped due to missing data—potentially weakening the model. Addressing this could improve reliability.
+
+## What We Did
+
+Built and evaluated simple and multiple regression models.
+
+Checked key assumptions (linearity, normality, homoscedasticity, influence).
+
+Investigated how variables like curing energy and viscosity affect drying.
+
+## Key Takeaways
+
+p < 0.05 indicates strong relationships.
+
+Higher R² = better model fit.
+
+# End of Document
+
+If you have any questions, we can easily update this document!
